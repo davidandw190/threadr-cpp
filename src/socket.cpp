@@ -44,3 +44,12 @@ std::string Socket::closeConnection() {
 
     return "";
 }
+
+std::string Socket::createHttpRequest(std::string host, std::string path) {
+    std::string request = "";
+    request += "GET " + path + " HTTP/1.1\r\n";
+    request += "HOST:" + host + "\r\n";
+    request += "Connection: close\r\n\r\n";
+    
+    return request;
+}

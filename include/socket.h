@@ -38,6 +38,8 @@ private:
     std::string startConnection();
     std::string closeConnection();
 
+    std::string createHttpRequest(std::string host, std::string path);
+
 
 };
 
