@@ -22,14 +22,14 @@ public:
     ClientSocket(
         std::string hostname,
         int port = 8989,
-        int pagesLimit = -1,
+        int pageLimit = -1,
         int crawlDelay = 1000
     );
 
 private:
     std::string hostname;
     int socket;
-    int pagesLimit;
+    int pageLimit;
     int port;
     int crawlDelay;
     std::queue<std::string> pendingPages;
