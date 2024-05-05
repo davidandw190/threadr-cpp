@@ -1,5 +1,6 @@
 #include "include/socket.h"
 #include <netdb.h>
+#include <unistd.h>
 #include <cstring>
 
 
@@ -18,7 +19,7 @@ std::string Socket::startConnection() {
          return "Error getting DNS info for hostname: " + hostname;
     }
 
-    if ((socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         return "Cannot create socket!";
     }
 
@@ -28,7 +29,7 @@ std::string Socket::startConnection() {
     serverAddr.sin_addr = *((struct in_addr *)host->h_addr);
     bzero(&(serverAddr.sin_zero), 8);
 
-    if (connect(socket, (struct sockaddr *)serverAddr, sizeof(struct sockaddr)) == -1) {
+    if (connect(sock, (struct sockaddr *)&serverAddr, sizeof(struct sockaddr)) == -1) {
         return "Cannot connect to server!";
     }
 

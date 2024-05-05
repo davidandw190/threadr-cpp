@@ -28,7 +28,7 @@ public:
 
 private:
     std::string hostname;
-    int socket;
+    int sock;
     int pageLimit;
     int port;
     int crawlDelay;
