@@ -1,5 +1,8 @@
-#include <iostream>
 
-void crawl() {
-    std::cout << "Hello from Threadr!.\n";
+#include "crawler.h"
+
+int main() {
+    Crawler crawler;
+    crawler.crawl();
+    return 0;
 }
