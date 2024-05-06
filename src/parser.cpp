@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 
 std::string getHostnameFromUrl(const std::string& url) {
     const std::string prefixes[] = {"https://", "http://"};
@@ -46,7 +47,9 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
 
             std::string foundUrl = httpRaw.substr(startPos, endPos - startPos);
 
-            extractedUrls.push_back({getHostnameFromUrl(foundUrl), getHostPathFromUrl(foundUrl)});
+            if (verifyUrl(rl)) {
+                extractedUrls.push_back({getHostnameFromUrl(foundUrl), getHostPathFromUrl(foundUrl)});
+            }
             
             httpRaw.erase(0, endPos);
         }
@@ -72,4 +75,33 @@ std::string reformatHttpResponse(const std::string& httpText) {
         }
     }
     return result;
+}
+
+bool verifyUrl(const std::string& url) {
+    std::string urlDomain = getHostnameFromUrl(url);
+    return urlDomain.empty() || verifyDomain(urlDomain);
+}
+
+bool verifyDomain(const std::string& url) {
+    const std::string allowedDomains[] = {".com", ".sg", ".net", ".co", ".org", ".me"};
+    for (const auto& domain : allowedDomains) {
+        if (hasSuffix(url, domain)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool verifyType(const std::string& url) {
+    const std::string forbiddenTypes[] = {".css", ".js", ".pdf", ".png", ".jpeg", ".jpg", ".ico"};
+    for (const auto& type : forbiddenTypes) {
+        if (url.find(type) != std::string::npos) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool hasSuffix(const std::string& str, const std::string& suffix) {
+    return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
