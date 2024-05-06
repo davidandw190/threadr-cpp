@@ -38,12 +38,42 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
     std::vector<std::pair<std::string, std::string>> extractedUrls;
 
     for (const auto& startText : urlStarts) {
-        // TODO: Implement parsing !!
+        size_t startPos = 0;
+
+        while ((startPos = httpRaw.find(startText, startPos)) != std::string::npos)  {
+            startPos += startText.size();
+            size_t endPos = httpRaw.find_first_of(urlEndChars, startPos);
+
+            if (endPos == std::string::npos) {
+                endPos = httpRaw.size();
+            }
+
+            std::string foundUrl = httpRaw.substr(startPos, endPos - startPos);
+
+            extractedUrls.push_back({getHostnameFromUrl(foundUrl), getHostPathFromUrl(foundUrl)});
+            
+            httpRaw.erase(0, endPos);
+        }
     }
 
     return extractedUrls;
 }
 
 std::string reformatHttpResponse(const std::string& httpText) {
-    // TODO: Implement this !!
+    std::string allowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01233456789.,/\":#?+-_= ";
+    std::map<char, char> charMap;
+    
+    for (char ch : allowedChars) {
+        charMap[ch] = ch;
+    }
+    
+    charMap['\n'] = ' ';
+
+    std::string result;
+    for (char ch : httpText) {
+        if (charMap.find(ch) != charMap.end()) {
+            result += tolower(charMap[ch]);
+        }
+    }
+    return result;
 }
