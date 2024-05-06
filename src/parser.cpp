@@ -4,9 +4,12 @@
 #include <vector>
 #include <map>
 
+const std::vector<std::string> URL_PREFIXES = {"https://", "http://"};
+const std::vector<std::string> URL_STARTS = {"href=\"", "href = \"", "http://", "https://"};
+const std::string URL_END_CHARS = "\"#?, ";
+
 std::string getHostnameFromUrl(const std::string& url) {
-    const std::string prefixes[] = {"https://", "http://"};
-    for (const auto& prefix : prefixes) {
+    for (const auto& prefix : URL_PREFIXES) {
         if (url.compare(0, prefix.size(), prefix) == 0) {
             size_t start = prefix.size();
             size_t end = url.find('/', start);
@@ -17,8 +20,7 @@ std::string getHostnameFromUrl(const std::string& url) {
 }
 
 std::string getHostPathFromUrl(const std::string& url) {
-    const std::string prefixes[] = {"https://", "http://"};
-    for (const auto& prefix : prefixes) {
+    for (const auto& prefix : URL_PREFIXES) {
         if (url.compare(0, prefix.size(), prefix) == 0) {
             size_t start = url.find('/', prefix.size());
             return start == std::string::npos ? "/" : url.substr(start);
@@ -29,12 +31,10 @@ std::string getHostPathFromUrl(const std::string& url) {
 
 std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& httpText) {
     std::string httpRaw = reformatHttpResponse(httpText);
-    const std::string urlStarts[] = {"href=\"", "href = \"", "http://", "https://"};
-    const std::string urlEndChars = "\"#?, ";
     
     std::vector<std::pair<std::string, std::string>> extractedUrls;
 
-    for (const auto& startText : urlStarts) {
+    for (const auto& startText : URL_STARTS) {
         size_t startPos = 0;
 
         while ((startPos = httpRaw.find(startText, startPos)) != std::string::npos)  {
@@ -47,7 +47,7 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
 
             std::string foundUrl = httpRaw.substr(startPos, endPos - startPos);
 
-            if (verifyUrl(rl)) {
+            if (verifyUrl(foundUrl)) {
                 extractedUrls.push_back({getHostnameFromUrl(foundUrl), getHostPathFromUrl(foundUrl)});
             }
             
@@ -59,10 +59,10 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
 }
 
 std::string reformatHttpResponse(const std::string& httpText) {
-    std::string allowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01233456789.,/\":#?+-_= ";
+    const std::string ALLOWED_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01233456789.,/\":#?+-_= ";
     std::map<char, char> charMap;
     
-    for (char ch : allowedChars) {
+    for (char ch : ALLOWED_CHARS) {
         charMap[ch] = ch;
     }
     
@@ -83,8 +83,8 @@ bool verifyUrl(const std::string& url) {
 }
 
 bool verifyDomain(const std::string& url) {
-    const std::string allowedDomains[] = {".com", ".sg", ".net", ".co", ".org", ".me"};
-    for (const auto& domain : allowedDomains) {
+    const std::string ALLOWED_DOMAINS[] = {".com", ".sg", ".net", ".co", ".org", ".me"};
+    for (const auto& domain : ALLOWED_DOMAINS) {
         if (hasSuffix(url, domain)) {
             return true;
         }
@@ -93,8 +93,8 @@ bool verifyDomain(const std::string& url) {
 }
 
 bool verifyType(const std::string& url) {
-    const std::string forbiddenTypes[] = {".css", ".js", ".pdf", ".png", ".jpeg", ".jpg", ".ico"};
-    for (const auto& type : forbiddenTypes) {
+    const std::string FORBIDDEN_TYPES[] = {".css", ".js", ".pdf", ".png", ".jpeg", ".jpg", ".ico"};
+    for (const auto& type : FORBIDDEN_TYPES) {
         if (url.find(type) != std::string::npos) {
             return false;
         }
