@@ -4,30 +4,26 @@
 #include <vector>
 
 std::string getHostnameFromUrl(const std::string& url) {
-    int offset = 0;
-    offset = offset == 0 && url.compare(0, 8, "https://")==0 ? 8 : offset;
-    offset = offset== 0 && url.compare(0, 7, "http://" )==0 ? 7 : offset;
-
-    size_t pos = url.find('/', offset);
-    std::string domain = url.substr(offset, (pos == string::npos ? url.length() : pos) - offset);
-
-    return domain;
+    const std::string prefixes[] = {"https://", "http://"};
+    for (const auto& prefix : prefixes) {
+        if (url.compare(0, prefix.size(), prefix) == 0) {
+            size_t start = prefix.size();
+            size_t end = url.find('/', start);
+            return url.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        }
+    }
+    return "";
 }
 
-std::string getHostPathFromUrl(std::string url) {
-    int offset = 0;
-    offset = offset == 0 && url.compare(0, 8, "https://")==0 ? 8 : offset;
-    offset = offset == 0 && url.compare(0, 7, "http://" )==0 ? 7 : offset;
-    
-    size_t pos = url.find("/", offset);
-    std::string path = pos == string::npos ? "/" : url.substr(pos);
-
-    // Remove extra slashes
-    pos = path.find_first_not_of('/');
-    if (pos == string::npos) path = "/";
-    	else path.erase(0, pos - 1);
-	
-    return path;
+std::string getHostPathFromUrl(const std::string& url) {
+    const std::string prefixes[] = {"https://", "http://"};
+    for (const auto& prefix : prefixes) {
+        if (url.compare(0, prefix.size(), prefix) == 0) {
+            size_t start = url.find('/', prefix.size());
+            return start == std::string::npos ? "/" : url.substr(start);
+        }
+    }
+    return "/";
 }
 
 std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& httpText) {
