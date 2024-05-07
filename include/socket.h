@@ -16,6 +16,7 @@ public:
         double maxResponseTime = -1; 
         int failedQueries = 0; 
 
+        std::vector<std::string> linkedSites;
         std::vector<std::pair<std::string, int>> discoveredPages;
     };
 
@@ -25,6 +26,8 @@ public:
         int pageLimit = -1,
         int crawlDelay = 1000
     );
+
+    SiteStats initiateDiscovery();
 
 private:
     std::string hostname;
