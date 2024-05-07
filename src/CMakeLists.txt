@@ -2,8 +2,8 @@ set(SOURCES
     crawler.cpp
 )
 
-add_executable(crawler ${SOURCES})
+add_executable(threadr ${SOURCES})
 
-target_include_directories(crawler PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(threadr PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
-install(TARGETS crawler DESTINATION executable PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+install(TARGETS threadr DESTINATION executable PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
