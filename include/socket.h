@@ -20,7 +20,7 @@ public:
         std::vector<std::pair<std::string, int>> discoveredPages;
     };
 
-    ClientSocket(
+    Socket(
         std::string hostname,
         int port = 8989,
         int pageLimit = -1,

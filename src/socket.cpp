@@ -10,6 +10,7 @@ Socket::Socket(std::string hostname, int port, int pageLimit, int crawlDelay)
     : hostname(hostname), port(port), pageLimit(pageLimit), crawlDelay(crawlDelay) {
     pendingPages.push("/");
     discoveredPages["/"] = true;
+    discoveredLinkedSites.clear();
 }
 
 std::string Socket::startConnection() {
@@ -78,7 +79,7 @@ Socket::SiteStats ClientSocket::initiateDiscovery() {
         }
 
         std::string sendData = createHttpRequest(hostname, path);
-        if (send(sock, sendData.c_str(), sendData.c_str(), 0) == -1) {
+        if (send(sock, sendData.c_str(), sendData.c_str(), 0) < 0) {
             stats.numberOfPagesFailed++;
             continue;
         }
@@ -129,7 +130,19 @@ Socket::SiteStats ClientSocket::initiateDiscovery() {
         
     }
 
-    // TODO: compute the rest of the stats
+    double totalResponseTime = 0;
+    for (auto page : stats.discoveredPages) {
+        totalResponseTime += page.second;
+
+        if (stats.minResponseTime < 0) stats.minResponseTime = page.second;
+        else stats.minResponseTime = std::min(stats.minResponseTime, page.second);
+        
+        if (stats.maxResponseTime < 0) stats.maxResponseTime = page.second;
+        else stats.maxResponseTime = std::max(stats.maxResponseTime, page.second);
+    }
+
+    if (!stats.discoveredPages.empty()) 
+        stats.averageResponseTime = totalResponseTime / stats.discoveredPages.size();
 
     return stats;
 
