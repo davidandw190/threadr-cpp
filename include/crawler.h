@@ -23,6 +23,7 @@ private:
     bool isThreadFinished;
 
     void initialize();
+    void scheduleCrawlers();
     Config readConfigFile();
 };
 
