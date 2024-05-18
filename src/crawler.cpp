@@ -1,11 +1,9 @@
-
 #include "crawler.h"
 #include "socket.h"
 #include "parser.h"
 #include "config.h"
 
-Crawler::Crawler(const Config& config) : config(config) {}
-
+Crawler::Crawler(const Config& config) : config(config), isThreadFinished(false) {}
 
 void Crawler::start() {
     initialize();
@@ -14,7 +12,7 @@ void Crawler::start() {
 
 Config readConfigFile() {
     try {
-        std::ifstream cfFile ("config.txt");
+        std::ifstream cfFile("config.txt");
         std::string var, val, url;
         Config cf;
         while (cfFile >> var >> val) {
@@ -33,7 +31,7 @@ Config readConfigFile() {
         cfFile.close();
         std::cout << "Configuration file read successfully" << std::endl;
         return cf;
-    } catch (std::exception &error) {
+    } catch (std::exception& error) {
         std::cerr << "Exception (@readConfigFile): " << error.what() << std::endl;
         exit(1);
     }
@@ -41,7 +39,7 @@ Config readConfigFile() {
 
 void Crawler::initialize() {
     crawlerState.threadsCount = 0;
-    for (auto url : config.startUrls) {
+    for (auto& url : config.startUrls) {
         crawlerState.pendingSites.push(std::make_pair(getHostnameFromUrl(url), 0));
         crawlerState.discoveredSites[getHostnameFromUrl(url)] = true;
     }
@@ -49,39 +47,30 @@ void Crawler::initialize() {
     std::cout << "Crawler initialized" << std::endl;
 }
 
-
 void Crawler::scheduleCrawlers() {
     while (crawlerState.threadsCount != 0 || !crawlerState.pendingSites.empty()) {
-        m_mutex.lock();
-        isThreadFinished = false;
+        std::unique_lock<std::mutex> m_lock(m_mutex);
 
-        std::cout << "Threads count: " << crawlerState.threadsCount << std::endl;
-        
         while (!crawlerState.pendingSites.empty() && crawlerState.threadsCount < config.maxThreads) {
             auto nextSite = crawlerState.pendingSites.front();
             crawlerState.pendingSites.pop();
             crawlerState.threadsCount++;
 
-            std::thread t(&Crawler::startCrawler, this, nextSite.first, nextSite.second);
-            if (t.joinable()) t.detach();
+            std::thread(&Crawler::startCrawler, this, nextSite.first, nextSite.second).detach();
         }
 
-        std::cout << "asdad " << std::endl;
-        
-
-        m_mutex.unlock();
-
-        std::unique_lock<std::mutex> m_lock(m_mutex);
-        while (!isThreadFinished) m_condVar.wait(m_lock);
+        m_condVar.wait(m_lock, [this] { return isThreadFinished; });
+        isThreadFinished = false;
     }
 }
 
 void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
-    Socket clientSocket = Socket(baseUrl, 8989, config.pageLimit, config.crawlDelay);
+    Socket clientSocket(baseUrl, 80, config.pageLimit, config.crawlDelay);
     std::cout << "Crawling " << baseUrl << " at depth " << currentDepth << std::endl;
     Socket::SiteStats stats = clientSocket.initiateDiscovery();
+    std::lock_guard<std::mutex> m_lock(m_mutex);
 
-    m_mutex.lock();
+    // Output the stats
     std::cout << "----------------------------------------------------------------------------" << std::endl;
     std::cout << " - Website: " << stats.hostname << std::endl;
     std::cout << " - Depth (distance from the starting pages): " << currentDepth << std::endl;
@@ -101,7 +90,7 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     if (!stats.discoveredPages.empty()) {
         std::cout << "\n [*] List of visited pages:" << std::endl;
         std::cout << "    " << std::setw(15) << "Response Time" << "    " << "URL" << std::endl;
-        for (auto page : stats.discoveredPages) {
+        for (auto& page : stats.discoveredPages) {
             std::cout << "    " << std::setw(13) << page.second << "ms" << "    " << page.first << std::endl;
         }
     }
@@ -110,7 +99,7 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
         for (int i = 0; i < std::min(static_cast<int>(stats.linkedSites.size()), config.linkedSitesLimit); i++) {
             std::string site = stats.linkedSites[i];
             if (!crawlerState.discoveredSites[site]) {
-                crawlerState.pendingSites.push(std::make_pair(site, currentDepth+1));
+                crawlerState.pendingSites.push(std::make_pair(site, currentDepth + 1));
                 crawlerState.discoveredSites[site] = true;
             }
         }
@@ -118,11 +107,8 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
 
     crawlerState.threadsCount--;
     isThreadFinished = true;
-    m_mutex.unlock();
-
     m_condVar.notify_one();
 }
-
 
 int main() {
     Crawler crawler(readConfigFile());
