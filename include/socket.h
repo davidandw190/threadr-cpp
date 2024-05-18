@@ -11,8 +11,8 @@ public:
     // holds stats for the discovered website
     struct SiteStats {
         std::string hostname;
-        double averageResponseTime; = -1;
-        double minResponseTime; = -1;
+        double averageResponseTime = -1;
+        double minResponseTime = -1;
         double maxResponseTime = -1; 
         int failedQueries = 0; 
 
@@ -36,7 +36,8 @@ private:
     int port;
     int crawlDelay;
     std::queue<std::string> pendingPages;
-    std::map<std::string, bool> discoveredPages;  
+    std::map<std::string, bool> discoveredPages; 
+    std::map<std::string, bool> discoveredLinkedSites; 
 
     std::string startConnection();
     std::string closeConnection();

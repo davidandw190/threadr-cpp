@@ -1,14 +1,18 @@
 
 #include "crawler.h"
+#include "socket.h"
+#include "parser.h"
+#include "config.h"
 
 Crawler::Crawler(const Config& config) : config(config) {}
 
 
 void Crawler::start() {
     initialize();
+    scheduleCrawlers();
 }
 
-Config Crawler::readConfigFile() {
+Config readConfigFile() {
     try {
         std::ifstream cfFile ("config.txt");
         std::string var, val, url;
@@ -17,7 +21,7 @@ Config Crawler::readConfigFile() {
             if (var == "crawlDelay") cf.crawlDelay = std::stoi(val);
             else if (var == "maxThreads") cf.maxThreads = std::stoi(val);
             else if (var == "depthLimit") cf.depthLimit = std::stoi(val);
-            else if (var == "pagesLimit") cf.pagesLimit = std::stoi(val);
+            else if (var == "pageLimit") cf.pageLimit = std::stoi(val);
             else if (var == "linkedSitesLimit") cf.linkedSitesLimit = std::stoi(val);
             else if (var == "startUrls") {
                 for (int i = 0; i < std::stoi(val); i++) {
@@ -27,6 +31,7 @@ Config Crawler::readConfigFile() {
             }
         }
         cfFile.close();
+        std::cout << "Configuration file read successfully" << std::endl;
         return cf;
     } catch (std::exception &error) {
         std::cerr << "Exception (@readConfigFile): " << error.what() << std::endl;
@@ -46,9 +51,11 @@ void Crawler::initialize() {
 
 
 void Crawler::scheduleCrawlers() {
-    while (crawlerState.threadCount != 0 || !crawlerState.pendingSites.empty()) {
+    while (crawlerState.threadsCount != 0 || !crawlerState.pendingSites.empty()) {
         m_mutex.lock();
         isThreadFinished = false;
+
+        std::cout << "Threads count: " << crawlerState.threadsCount << std::endl;
         
         while (!crawlerState.pendingSites.empty() && crawlerState.threadsCount < config.maxThreads) {
             auto nextSite = crawlerState.pendingSites.front();
@@ -59,16 +66,20 @@ void Crawler::scheduleCrawlers() {
             if (t.joinable()) t.detach();
         }
 
+        std::cout << "asdad " << std::endl;
+        
+
         m_mutex.unlock();
 
         std::unique_lock<std::mutex> m_lock(m_mutex);
-        while (!threadFinished) m_condVar.wait(m_lock);
+        while (!isThreadFinished) m_condVar.wait(m_lock);
     }
 }
 
 void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
-    Socket sock = Socket(baseUrl, 8989, config.pageLimit, config.crawlDelay);
-    SiteStats stats = clientSocket.startDiscovering();
+    Socket clientSocket = Socket(baseUrl, 8989, config.pageLimit, config.crawlDelay);
+    std::cout << "Crawling " << baseUrl << " at depth " << currentDepth << std::endl;
+    Socket::SiteStats stats = clientSocket.initiateDiscovery();
 
     m_mutex.lock();
     std::cout << "----------------------------------------------------------------------------" << std::endl;
@@ -114,7 +125,8 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
 
 
 int main() {
-    Crawler crawler;
-    crawler.crawl();
+    Crawler crawler(readConfigFile());
+    crawler.start();
+    std::cout << "Crawler finished" << std::endl;
     return 0;
 }

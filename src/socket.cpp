@@ -1,8 +1,9 @@
-#include "include/socket.h"
-#include "include/parser.h"
+#include "socket.h"
+#include "parser.h"
 #include <netdb.h>
 #include <unistd.h>
-#include <chrome.h>
+#include <iostream>
+#include <chrono>
 #include <cstring>
 
 
@@ -57,11 +58,13 @@ std::string Socket::createHttpRequest(std::string host, std::string path) {
     return request;
 }
 
-Socket::SiteStats ClientSocket::initiateDiscovery() {
+Socket::SiteStats Socket::initiateDiscovery() {
     Socket::SiteStats stats;
-    sats.hostname = hostname;
+    stats.hostname = hostname;
 
-     while (!pendingPages.empty() && (pagesLimit == -1 || static_cast<int>(stats.discoveredPages.size()) < pagesLimit)) {
+    std::cout << "Hostname " << hostname << std::endl;
+
+     while (!pendingPages.empty() && (pageLimit == -1 || static_cast<int>(stats.discoveredPages.size()) < pageLimit)) {
         std::string path = pendingPages.front();
         pendingPages.pop();
 
@@ -74,13 +77,13 @@ Socket::SiteStats ClientSocket::initiateDiscovery() {
         
         // If cannot create the conn, just ignore
         if (startConnection() != "") {
-            stats.numberOfPagesFailed++;
+            stats.failedQueries++;
             continue;
         }
 
         std::string sendData = createHttpRequest(hostname, path);
-        if (send(sock, sendData.c_str(), sendData.c_str(), 0) < 0) {
-            stats.numberOfPagesFailed++;
+        if (send(sock, sendData.c_str(), sendData.size(), 0) < 0) {
+            stats.failedQueries++;
             continue;
         }
 
@@ -134,11 +137,12 @@ Socket::SiteStats ClientSocket::initiateDiscovery() {
     for (auto page : stats.discoveredPages) {
         totalResponseTime += page.second;
 
-        if (stats.minResponseTime < 0) stats.minResponseTime = page.second;
-        else stats.minResponseTime = std::min(stats.minResponseTime, page.second);
-        
-        if (stats.maxResponseTime < 0) stats.maxResponseTime = page.second;
-        else stats.maxResponseTime = std::max(stats.maxResponseTime, page.second);
+        if (stats.minResponseTime < 0) stats.minResponseTime = static_cast<double>(page.second);
+        else stats.minResponseTime = std::min(stats.minResponseTime, static_cast<double>(page.second));
+
+        if (stats.maxResponseTime < 0) stats.maxResponseTime = static_cast<double>(page.second);
+        else stats.maxResponseTime = std::max(stats.maxResponseTime, static_cast<double>(page.second));
+
     }
 
     if (!stats.discoveredPages.empty()) 

@@ -8,7 +8,7 @@ struct Config {
     int crawlDelay = 1000;
     int maxThreads = 10;
     int depthLimit = 10;
-    int pagesLimit = 10;
+    int pageLimit = 10;
     int linkedSitesLimit = 10;
     std::vector<std::string> startUrls;
 };
