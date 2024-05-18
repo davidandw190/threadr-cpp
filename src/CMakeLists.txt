@@ -1,5 +1,7 @@
 set(SOURCES 
     crawler.cpp
+    parser.cpp
+    socket.cpp
 )
 
 add_executable(crawler ${SOURCES})
