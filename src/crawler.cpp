@@ -8,6 +8,32 @@ void Crawler::start() {
     initialize();
 }
 
+Config Crawler::readConfigFile() {
+    try {
+        std::ifstream cfFile ("config.txt");
+        std::string var, val, url;
+        Config cf;
+        while (cfFile >> var >> val) {
+            if (var == "crawlDelay") cf.crawlDelay = std::stoi(val);
+            else if (var == "maxThreads") cf.maxThreads = std::stoi(val);
+            else if (var == "depthLimit") cf.depthLimit = std::stoi(val);
+            else if (var == "pagesLimit") cf.pagesLimit = std::stoi(val);
+            else if (var == "linkedSitesLimit") cf.linkedSitesLimit = std::stoi(val);
+            else if (var == "startUrls") {
+                for (int i = 0; i < std::stoi(val); i++) {
+                    cfFile >> url;
+                    cf.startUrls.push_back(url);
+                }
+            }
+        }
+        cfFile.close();
+        return cf;
+    } catch (std::exception &error) {
+        std::cerr << "Exception (@readConfigFile): " << error.what() << std::endl;
+        exit(1);
+    }
+}
+
 void Crawler::initialize() {
     crawlerState.threadsCount = 0;
     for (auto url : config.startUrls) {
