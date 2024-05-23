@@ -81,10 +81,10 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     if (stats.minResponseTime < 0) std::cout << " - Min. Response Time: -" << std::endl;
     else std::cout << " - Min. Response Time: " << stats.minResponseTime << "ms" << std::endl;
 
-    if (stats.maxResponseTime < 0) std::cout << "Max. Response Time: -" << std::endl;
+    if (stats.maxResponseTime < 0) std::cout << " - Max. Response Time: -" << std::endl;
     else std::cout << " - Max. Response Time: " << stats.maxResponseTime << "ms" << std::endl;
 
-    if (stats.averageResponseTime < 0) std::cout << "Average Response Time: -" << std::endl;
+    if (stats.averageResponseTime < 0) std::cout << " - Avg Response Time: -" << std::endl;
     else std::cout << " - Avg Response Time: " << stats.averageResponseTime << "ms" << std::endl;
 
     if (!stats.discoveredPages.empty()) {
@@ -98,7 +98,7 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     if (currentDepth < config.depthLimit) {
         for (int i = 0; i < std::min(static_cast<int>(stats.linkedSites.size()), config.linkedSitesLimit); i++) {
             std::string site = stats.linkedSites[i];
-            if (!crawlerState.discoveredSites[site]) {
+            if (crawlerState.discoveredSites.find(site) == crawlerState.discoveredSites.end()) {
                 crawlerState.pendingSites.push(std::make_pair(site, currentDepth + 1));
                 crawlerState.discoveredSites[site] = true;
             }
@@ -109,6 +109,8 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     isThreadFinished = true;
     m_condVar.notify_one();
 }
+
+
 
 int main() {
     Crawler crawler(readConfigFile());

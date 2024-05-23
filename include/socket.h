@@ -42,6 +42,14 @@ private:
     std::string startConnection();
     std::string closeConnection();
 
+    bool isSameHost(const std::string& url, const std::string& hostname);
+    bool isSameUrl(const std::string& url, const std::string& hostname);
+
+    bool containsRepeatedHostname(const std::string& url, const std::string& hostname);
+
+
+    std::string getUrlHost(const std::string& url);
+
     std::string createHttpRequest(std::string host, std::string path);
 
 

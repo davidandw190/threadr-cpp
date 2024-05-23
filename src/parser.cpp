@@ -35,7 +35,7 @@ bool hasSuffix(const std::string& str, const std::string& suffix) {
 }
 
 bool verifyDomain(const std::string& url) {
-    const std::string ALLOWED_DOMAINS[] = {".com", ".sg", ".net", ".co", ".org", ".me"};
+    const std::string ALLOWED_DOMAINS[] = {".com", ".sg", ".net", ".co", ".org", ".me", ".ro", ".html", ".gov", ".edu", ".uk", ".io", ".info", ".biz", ".us", ".ca", ".au", ".de", ".fr", ".it", ".nl", ".se", ".no", ".jp", ".br", ".es", ".mx", ".ru", ".ch", ".at", ".dk", ".be", ".nz", ".pl", ".cz", ".gr", ".pt", ".fi", ".hu", ".cn", ".tr", ".kr", ".tw", ".hk", ".vn", ".id", ".ph", ".my", ".th", ".ae", ".sa", ".il", ".eg", ".za", ".ua", ".ar", ".cl", ".pe", ".co", ".ve", ".ec", ".bo", ".py", ".uy", ".cr", ".pa", ".do", ".gt", ".sv", ".hn", ".ni", ".pr", ".jm", ".bb", ".tt", ".bs", ".gd", ".lc", ".vc", ".sr", ".gy", ".mq", ".gp", ".gf", ".aw", ".cw", ".sx", ".bq", ".an", ".pm", ".gl", ".fo", ".is", ".ie", ".lu", ".mc", ".ad", ".li", ".je", ".gg", ".im", ".gi", ".mt", ".cy", ".ax", ".fk", ".gs", ".bv", ".hm", ".tf", ".um", ".aq", ".io", ".sh", ".ac", ".cp", ".dg", ".eu", ".int", ".mil", ".museum", ".aero", ".arpa", ".cat", ".coop", ".jobs", ".pro", ".tel", ".travel", ".be", ".nz", ".pl",};
     for (const auto& domain : ALLOWED_DOMAINS) {
         if (hasSuffix(url, domain)) {
             return true;
@@ -79,12 +79,13 @@ std::string reformatHttpResponse(const std::string& httpText) {
     return result;
 }
 
-std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& httpText) {
+
+std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& httpText, const std::string& baseUrl) {
     std::string httpRaw = reformatHttpResponse(httpText);
-    
     std::vector<std::pair<std::string, std::string>> extractedUrls;
 
     size_t startPos = 0;
+    std::string baseHost = getHostnameFromUrl(baseUrl);
 
     while (startPos < httpRaw.size()) {
         size_t foundPos = std::string::npos;
@@ -105,15 +106,18 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
             }
             foundUrl = httpRaw.substr(foundPos, endPos - foundPos);
 
-            // Handling relative URLs
-            if (foundUrl.compare(0, 1, "/") == 0) {
-                foundUrl = "http://" + getHostnameFromUrl(httpRaw) + foundUrl;
-            } else if (foundUrl.compare(0, 2, "./") == 0) {
-                foundUrl = "http://" + getHostnameFromUrl(httpRaw) + "/" + foundUrl.substr(2);
+            // Ensure correct handling of relative URLs
+            if (!foundUrl.empty() && foundUrl[0] == '/') {
+                foundUrl = "http://" + baseHost + foundUrl;
+            } else if (!foundUrl.empty() && foundUrl.find("http") == std::string::npos) {
+                foundUrl = "http://" + baseHost + "/" + foundUrl;
             }
 
             if (verifyUrl(foundUrl) && verifyType(foundUrl)) {
-                extractedUrls.push_back({getHostnameFromUrl(foundUrl), getHostPathFromUrl(foundUrl)});
+                std::string urlHost = getHostnameFromUrl(foundUrl);
+                if (!urlHost.empty()) {
+                    extractedUrls.push_back({urlHost, getHostPathFromUrl(foundUrl)});
+                }
             }
             startPos = endPos;
         } else {
@@ -123,3 +127,4 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
 
     return extractedUrls;
 }
+

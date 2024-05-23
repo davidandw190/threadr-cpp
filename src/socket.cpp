@@ -69,8 +69,6 @@ Socket::SiteStats Socket::initiateDiscovery() {
     Socket::SiteStats stats;
     stats.hostname = hostname;
 
-    std::cout << "Hostname " << hostname << std::endl;
-
     while (!pendingPages.empty() && (pageLimit == -1 || static_cast<int>(stats.discoveredPages.size()) < pageLimit)) {
         std::string path = pendingPages.front();
         pendingPages.pop();
@@ -127,7 +125,7 @@ Socket::SiteStats Socket::initiateDiscovery() {
 
         stats.discoveredPages.push_back(std::make_pair(hostname + path, responseTime));
 
-        std::vector<std::pair<std::string, std::string>> extractedUrls = extractUrls(httpResponse);
+        std::vector<std::pair<std::string, std::string>> extractedUrls = extractUrls(httpResponse, hostname);
         for (auto& url : extractedUrls) {
             if (url.first == "" || url.first == hostname) {
                 // In case it's the same host, check if the path is discovered
@@ -156,8 +154,7 @@ Socket::SiteStats Socket::initiateDiscovery() {
         else stats.maxResponseTime = std::max(stats.maxResponseTime, static_cast<double>(page.second));
     }
 
-    if (!stats.discoveredPages.empty()) 
-        stats.averageResponseTime = totalResponseTime / stats.discoveredPages.size();
+    stats.averageResponseTime = (stats.discoveredPages.size() > 0) ? totalResponseTime / static_cast<double>(stats.discoveredPages.size()) : -1;
 
     return stats;
 }
