@@ -5,11 +5,11 @@
 #include <vector>
 
 struct Config {
-    int crawlDelay = 1000;
-    int maxThreads = 10;
-    int depthLimit = 10;
-    int pageLimit = 10;
-    int linkedSitesLimit = 10;
+    int crawlDelay = 2000;
+    int maxThreads = 15;
+    int depthLimit = 15;
+    int pageLimit = 100;
+    int linkedSitesLimit = 100;
     std::vector<std::string> startUrls;
 };
 

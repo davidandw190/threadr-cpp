@@ -1,3 +1,10 @@
+/**
+ * @file socket.cpp
+ * @brief Implementation of the client Socket class for HTTP connection handling and page discovery.
+ * 
+ * Responsible for establishing HTTP connections, sending requests, and discovering pages and linked sites.
+ */
+
 #include "socket.h"
 #include "parser.h"
 #include <netdb.h>
@@ -8,6 +15,14 @@
 #include <algorithm>
 #include <cerrno>
 
+/**
+ * @brief Constructs a Socket object with the specified params.
+ * 
+ * @param hostname The hostname to connect to.
+ * @param port The port number to connect to.
+ * @param pageLimit The maximum number of pages to discover.
+ * @param crawlDelay The delay between consecutive requests in milliseconds.
+ */
 Socket::Socket(std::string hostname, int port, int pageLimit, int crawlDelay)
     : hostname(hostname), port(port), pageLimit(pageLimit), crawlDelay(crawlDelay) {
     pendingPages.push("/");
@@ -15,6 +30,12 @@ Socket::Socket(std::string hostname, int port, int pageLimit, int crawlDelay)
     discoveredLinkedSites.clear();
 }
 
+
+/**
+ * @brief Establishes a connection with the web server.
+ * 
+ * @return A string containing an error message if an error occurs during the connection process, or an empty string if successful.
+ */
 std::string Socket::startConnection() {
     struct hostent *host;
     struct sockaddr_in serverAddr;
@@ -48,6 +69,12 @@ std::string Socket::startConnection() {
     return "";
 }
 
+
+/**
+ * @brief Closes the connection with the web server.
+ * 
+ * @return A string containing an error message if an error occurs while closing the connection, or an empty string if successful.
+ */
 std::string Socket::closeConnection() {
     if (close(sock) == -1) {
         return "Error closing socket: " + std::string(strerror(errno));
@@ -56,6 +83,14 @@ std::string Socket::closeConnection() {
     return "";
 }
 
+
+/**
+ * @brief Creates an HTTP request message.
+ * 
+ * @param host The host to include in the request.
+ * @param path The path to include in the request.
+ * @return The HTTP request message as a string.
+ */
 std::string Socket::createHttpRequest(std::string host, std::string path) {
     std::string request = "";
     request += "GET " + path + " HTTP/1.1\r\n";
@@ -65,6 +100,14 @@ std::string Socket::createHttpRequest(std::string host, std::string path) {
     return request;
 }
 
+
+/**
+ * @brief @brief Initiates the discovery process by sending HTTP requests and extracting URLs from the responses.
+ * 
+ * It iteratively discovers pages until the page limit is reached or there are no more pending pages.
+ * 
+ * @return SiteStats structure containing statistics about the discovered pages and linked sites.
+ */
 Socket::SiteStats Socket::initiateDiscovery() {
     Socket::SiteStats stats;
     stats.hostname = hostname;
@@ -73,14 +116,14 @@ Socket::SiteStats Socket::initiateDiscovery() {
         std::string path = pendingPages.front();
         pendingPages.pop();
 
-        // Sleep for crawlDelay if this is not the first request
+        // sleep for crawlDelay if this is not the first request
         if (path != "/") {
             usleep(crawlDelay * 1000);
         }
 
         auto startTime = std::chrono::high_resolution_clock::now();
         
-        // If cannot create the connection, just ignore
+        // if cannot create the connection, just ignore
         std::string connectionError = startConnection();
         if (connectionError != "") {
             std::cerr << connectionError << std::endl;
@@ -96,7 +139,7 @@ Socket::SiteStats Socket::initiateDiscovery() {
             continue;
         }
 
-        char receivedDataBuffer[1024];
+        char receivedDataBuffer[4080];
         int totalBytesRead = 0;
         std::string httpResponse = "";
         double responseTime = -1;

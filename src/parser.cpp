@@ -1,3 +1,11 @@
+/**
+ * @file parser.cpp
+ * @brief Implementation of utility functions for parsing and processing URLs and HTTP responses.
+ * 
+ * It provides the implementation of  utility functions used for parsing URLs, extracting URLs 
+ * from HTTP responses, and performing URL validation checks.
+ */
+
 #include "parser.h"
 #include <iostream>
 #include <string>
@@ -9,6 +17,12 @@ const std::vector<std::string> URL_PREFIXES = {"https://", "http://"};
 const std::vector<std::string> URL_STARTS = {"href=\"", "href='", "src=\"", "src='", "url(", "http://", "https://"};
 const std::string URL_END_CHARS = "\"'#? ),";
 
+/**
+ * @brief Extracts the hostname from a given URL.
+ * 
+ * @param url The URL from which to extract the hostname.
+ * @return The extracted hostname.
+ */
 std::string getHostnameFromUrl(const std::string& url) {
     for (const auto& prefix : URL_PREFIXES) {
         if (url.compare(0, prefix.size(), prefix) == 0) {
@@ -20,6 +34,12 @@ std::string getHostnameFromUrl(const std::string& url) {
     return "";
 }
 
+/**
+ * @brief Extracts the host path from a given URL.
+ * 
+ * @param url The URL from which to extract the host path.
+ * @return The extracted host path.
+ */
 std::string getHostPathFromUrl(const std::string& url) {
     for (const auto& prefix : URL_PREFIXES) {
         if (url.compare(0, prefix.size(), prefix) == 0) {
@@ -30,10 +50,23 @@ std::string getHostPathFromUrl(const std::string& url) {
     return "/";
 }
 
+/**
+ * @brief Checks if a string ends with a given suffix.
+ * 
+ * @param str The string to check.
+ * @param suffix The suffix to check for.
+ * @return True if the string ends with the suffix, otherwise false.
+ */
 bool hasSuffix(const std::string& str, const std::string& suffix) {
     return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+/**
+ * @brief Verifies if a domain is allowed based on a list of predefined domains.
+ * 
+ * @param url The URL to verify.
+ * @return True if the domain is allowed, otherwise false.
+ */
 bool verifyDomain(const std::string& url) {
     const std::string ALLOWED_DOMAINS[] = {".com", ".sg", ".net", ".co", ".org", ".me", ".ro", ".html", ".gov", ".edu", ".uk", ".io", ".info", ".biz", ".us", ".ca", ".au", ".de", ".fr", ".it", ".nl", ".se", ".no", ".jp", ".br", ".es", ".mx", ".ru", ".ch", ".at", ".dk", ".be", ".nz", ".pl", ".cz", ".gr", ".pt", ".fi", ".hu", ".cn", ".tr", ".kr", ".tw", ".hk", ".vn", ".id", ".ph", ".my", ".th", ".ae", ".sa", ".il", ".eg", ".za", ".ua", ".ar", ".cl", ".pe", ".co", ".ve", ".ec", ".bo", ".py", ".uy", ".cr", ".pa", ".do", ".gt", ".sv", ".hn", ".ni", ".pr", ".jm", ".bb", ".tt", ".bs", ".gd", ".lc", ".vc", ".sr", ".gy", ".mq", ".gp", ".gf", ".aw", ".cw", ".sx", ".bq", ".an", ".pm", ".gl", ".fo", ".is", ".ie", ".lu", ".mc", ".ad", ".li", ".je", ".gg", ".im", ".gi", ".mt", ".cy", ".ax", ".fk", ".gs", ".bv", ".hm", ".tf", ".um", ".aq", ".io", ".sh", ".ac", ".cp", ".dg", ".eu", ".int", ".mil", ".museum", ".aero", ".arpa", ".cat", ".coop", ".jobs", ".pro", ".tel", ".travel", ".be", ".nz", ".pl",};
     for (const auto& domain : ALLOWED_DOMAINS) {
@@ -44,11 +77,23 @@ bool verifyDomain(const std::string& url) {
     return false;
 }
 
+/**
+ * @brief Verifies if a URL is valid based on allowed domains.
+ * 
+ * @param url The URL to verify.
+ * @return True if the URL is valid, otherwise false.
+ */
 bool verifyUrl(const std::string& url) {
     std::string urlDomain = getHostnameFromUrl(url);
     return urlDomain.empty() || verifyDomain(urlDomain);
 }
 
+/**
+ * @brief Verifies if the URL type is allowed.
+ * 
+ * @param url The URL to verify.
+ * @return True if the URL type is allowed, otherwise false.
+ */
 bool verifyType(const std::string& url) {
     const std::string FORBIDDEN_TYPES[] = {".css", ".js", ".pdf", ".png", ".jpeg", ".jpg", ".ico"};
     for (const auto& type : FORBIDDEN_TYPES) {
@@ -59,6 +104,12 @@ bool verifyType(const std::string& url) {
     return true;
 }
 
+/**
+ * @brief Reformat HTTP response text to lowercase and remove unwanted characters.
+ * 
+ * @param httpText The HTTP response text to reformat.
+ * @return The reformatted HTTP response text.
+ */
 std::string reformatHttpResponse(const std::string& httpText) {
     const std::string ALLOWED_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,/\":#?+-_= ";
     std::map<char, char> charMap;
@@ -80,6 +131,13 @@ std::string reformatHttpResponse(const std::string& httpText) {
 }
 
 
+/**
+ * @brief Extracts URLs from HTTP response text.
+ * 
+ * @param httpText The HTTP response text containing URLs.
+ * @param baseUrl The base URL from which the HTTP response was retrieved.
+ * @return A vector of pairs representing the extracted URLs and their corresponding host paths.
+ */
 std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& httpText, const std::string& baseUrl) {
     std::string httpRaw = reformatHttpResponse(httpText);
     std::vector<std::pair<std::string, std::string>> extractedUrls;

@@ -1,3 +1,11 @@
+/**
+ * @file crawler.cpp
+ * @brief Implementation of a web crawler for discovering and analyzing web pages.
+ * 
+ * Implementation of the core Crawler class, which is responsible for crawling the
+ * web pages, discovering links, and analyzing the response times of different URLs.
+ */
+
 #include "crawler.h"
 #include "socket.h"
 #include "parser.h"
@@ -10,6 +18,11 @@ void Crawler::start() {
     scheduleCrawlers();
 }
 
+/**
+ * @brief Pareses the configuration from the configured file.
+ * 
+ * @return The configuration object read from the file.
+ */
 Config readConfigFile() {
     try {
         std::ifstream cfFile("config.txt");
@@ -37,6 +50,12 @@ Config readConfigFile() {
     }
 }
 
+
+/**
+ * @brief Initializes the crawler with start URLs.
+ * 
+ * This method initializes the crawler state with start URLs and marks them as discovered.
+ */
 void Crawler::initialize() {
     crawlerState.threadsCount = 0;
     for (auto& url : config.startUrls) {
@@ -47,6 +66,12 @@ void Crawler::initialize() {
     std::cout << "Crawler initialized" << std::endl;
 }
 
+
+/**
+ * @brief Schedules crawlers for processing URLs.
+ * 
+ * It schedules crawlers to process URLs until all URLs have been crawled or no more threads are available.
+ */
 void Crawler::scheduleCrawlers() {
     while (crawlerState.threadsCount != 0 || !crawlerState.pendingSites.empty()) {
         std::unique_lock<std::mutex> m_lock(m_mutex);
@@ -64,6 +89,13 @@ void Crawler::scheduleCrawlers() {
     }
 }
 
+
+/**
+ * @brief Starts crawling a given URL.
+ * 
+* @param baseUrl The base URL of the website to crawl.
+ * @param currentDepth The current depth of the crawling process.
+ */
 void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     Socket clientSocket(baseUrl, 80, config.pageLimit, config.crawlDelay);
     std::cout << "Crawling " << baseUrl << " at depth " << currentDepth << std::endl;
