@@ -82,6 +82,8 @@ void Crawler::scheduleCrawlers() {
             crawlerState.threadsCount++;
 
             std::thread(&Crawler::startCrawler, this, nextSite.first, nextSite.second).detach();
+
+            std::cout << "Thread scheduled for " << nextSite.first << " with path " << nextSite.second << std::endl;
         }
 
         m_condVar.wait(m_lock, [this] { return isThreadFinished; });

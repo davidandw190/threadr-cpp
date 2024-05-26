@@ -30,7 +30,6 @@ Socket::Socket(std::string hostname, int port, int pageLimit, int crawlDelay)
     discoveredLinkedSites.clear();
 }
 
-
 /**
  * @brief Establishes a connection with the web server.
  * 
@@ -56,7 +55,7 @@ std::string Socket::startConnection() {
     bzero(&(serverAddr.sin_zero), 8);
 
     struct timeval timeout;
-    timeout.tv_sec = 10;  // 10 seconds timeout
+    timeout.tv_sec = 15;  // 15 seconds timeout
     timeout.tv_usec = 0;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
@@ -68,7 +67,6 @@ std::string Socket::startConnection() {
 
     return "";
 }
-
 
 /**
  * @brief Closes the connection with the web server.
@@ -82,7 +80,6 @@ std::string Socket::closeConnection() {
 
     return "";
 }
-
 
 /**
  * @brief Creates an HTTP request message.
@@ -100,9 +97,8 @@ std::string Socket::createHttpRequest(std::string host, std::string path) {
     return request;
 }
 
-
 /**
- * @brief @brief Initiates the discovery process by sending HTTP requests and extracting URLs from the responses.
+ * @brief Initiates the discovery process by sending HTTP requests and extracting URLs from the responses.
  * 
  * It iteratively discovers pages until the page limit is reached or there are no more pending pages.
  * 
@@ -115,89 +111,150 @@ Socket::SiteStats Socket::initiateDiscovery() {
     while (!pendingPages.empty() && (pageLimit == -1 || static_cast<int>(stats.discoveredPages.size()) < pageLimit)) {
         std::string path = pendingPages.front();
         pendingPages.pop();
-
-        // sleep for crawlDelay if this is not the first request
-        if (path != "/") {
-            usleep(crawlDelay * 1000);
-        }
-
-        auto startTime = std::chrono::high_resolution_clock::now();
         
-        // if cannot create the connection, just ignore
-        std::string connectionError = startConnection();
-        if (connectionError != "") {
-            std::cerr << connectionError << std::endl;
-            stats.failedQueries++;
-            continue;
-        }
+        handlePageCrawl(path, stats);
+    }
 
-        std::string sendData = createHttpRequest(hostname, path);
-        if (send(sock, sendData.c_str(), sendData.size(), 0) < 0) {
-            std::cerr << "Send failed: " << strerror(errno) << std::endl;
-            stats.failedQueries++;
-            closeConnection();
-            continue;
-        }
+    computeStats(stats);
+    return stats;
+}
 
-        char receivedDataBuffer[4080];
-        int totalBytesRead = 0;
-        std::string httpResponse = "";
-        double responseTime = -1;
-        while (true) {
-            bzero(receivedDataBuffer, sizeof(receivedDataBuffer));
-            int bytesRead = recv(sock, receivedDataBuffer, sizeof(receivedDataBuffer), 0);
+/**
+ * @brief Handles the crawling of a single page.
+ * 
+ * @param path The path to crawl.
+ * @param stats The SiteStats object to update with the crawl results.
+ */
+void Socket::handlePageCrawl(const std::string& path, Socket::SiteStats& stats) {
+    std::cout << "Crawling " << hostname << " with path " << path << std::endl;
 
-            if (responseTime < -0.5) {
-                // clock end
-                auto endTime = std::chrono::high_resolution_clock::now();
-                responseTime = std::chrono::duration<double, std::milli>(endTime - startTime).count();
-            }
+    if (path != "/") {
+        usleep(crawlDelay * 1000);
+    }
 
-            if (bytesRead > 0) {
-                httpResponse.append(receivedDataBuffer, bytesRead);
-                totalBytesRead += bytesRead;
-            } else if (bytesRead == 0) {
-                break;  // Connection closed by peer
-            } else {
-                std::cerr << "Receive failed: " << strerror(errno) << std::endl;
-                break;
-            }
-        }
+    auto startTime = std::chrono::high_resolution_clock::now();
 
+    std::string connectionError = startConnection();
+    if (!connectionError.empty()) {
+        std::cerr << connectionError << std::endl;
+        stats.failedQueries++;
+        return;
+    }
+
+    std::string sendData = createHttpRequest(hostname, path);
+    if (!sendRequest(sendData, stats)) {
+        return;
+    }
+
+    std::string httpResponse;
+    double responseTime = receiveResponse(httpResponse, startTime);
+    closeConnection();
+
+    stats.discoveredPages.push_back(std::make_pair(hostname + path, responseTime));
+
+    processResponse(httpResponse, stats);
+}
+
+/**
+ * @brief Sends an HTTP request.
+ * 
+ * @param request The HTTP request message to send.
+ * @param stats The SiteStats object to update in case of failure.
+ * @return True if the request was sent successfully, false otherwise.
+ */
+bool Socket::sendRequest(const std::string& request, Socket::SiteStats& stats) {
+    if (send(sock, request.c_str(), request.size(), 0) < 0) {
+        std::cerr << "Send failed: " << strerror(errno) << std::endl;
+        stats.failedQueries++;
         closeConnection();
+        return false;
+    }
+    return true;
+}
 
-        stats.discoveredPages.push_back(std::make_pair(hostname + path, responseTime));
+/**
+ * @brief Receives an HTTP response in chuncks.
+ * 
+ * @param response The string to store the received response.
+ * @param startTime The start time of the request to compute response time.
+ * @return The response time in milliseconds.
+ */
+double Socket::receiveResponse(std::string& response, const std::chrono::high_resolution_clock::time_point& startTime) {
+    char receivedDataBuffer[4080];
+    double responseTime = -1;
+    int totalBytesRead = 0;
 
-        std::vector<std::pair<std::string, std::string>> extractedUrls = extractUrls(httpResponse, hostname);
-        for (auto& url : extractedUrls) {
-            if (url.first == "" || url.first == hostname) {
-                // In case it's the same host, check if the path is discovered
-                if (!discoveredPages[url.second]) {
-                    pendingPages.push(url.second);
-                    discoveredPages[url.second] = true;
-                }
-            } else {
-                // In a different host, add to linkedSites
-                if (!discoveredLinkedSites[url.first]) {
-                    discoveredLinkedSites[url.first] = true;
-                    stats.linkedSites.push_back(url.first);
-                }
-            }    
+    while (true) {
+        bzero(receivedDataBuffer, sizeof(receivedDataBuffer));
+        int bytesRead = recv(sock, receivedDataBuffer, sizeof(receivedDataBuffer), 0);
+
+        if (responseTime < -0.5) {
+            auto endTime = std::chrono::high_resolution_clock::now();
+            responseTime = std::chrono::duration<double, std::milli>(endTime - startTime).count();
+        }
+
+        if (bytesRead > 0) {
+            response.append(receivedDataBuffer, bytesRead);
+            totalBytesRead += bytesRead;
+        } else if (bytesRead == 0) {
+            break;  // connection closed by peer
+        } else {
+            std::cerr << "Receive failed: " << strerror(errno) << std::endl;
+            break;
         }
     }
 
+    return responseTime;
+}
+
+/**
+ * @brief Processes the HTTP response to extract URLs and update stats.
+ * 
+ * @param response The HTTP response received from the server.
+ * @param stats The SiteStats object to update with the extracted URLs.
+ */
+void Socket::processResponse(const std::string& response, Socket::SiteStats& stats) {
+    std::vector<std::pair<std::string, std::string>> extractedUrls = extractUrls(response, hostname);
+    for (const auto& url : extractedUrls) {
+        if (url.first.empty() || url.first == hostname) {
+            if (!discoveredPages[url.second]) {
+                pendingPages.push(url.second);
+                discoveredPages[url.second] = true;
+            }
+        } else {
+            if (!discoveredLinkedSites[url.first]) {
+                discoveredLinkedSites[url.first] = true;
+                stats.linkedSites.push_back(url.first);
+            }
+        }
+    }
+}
+
+/**
+ * @brief computes statistics for the discovered pages.
+ * 
+ * @param stats The SiteStats object to update with the computed statistics.
+ */
+void Socket::computeStats(Socket::SiteStats& stats) {
     double totalResponseTime = 0;
-    for (auto& page : stats.discoveredPages) {
+
+    for (const auto& page : stats.discoveredPages) {
         totalResponseTime += page.second;
 
-        if (stats.minResponseTime < 0) stats.minResponseTime = static_cast<double>(page.second);
-        else stats.minResponseTime = std::min(stats.minResponseTime, static_cast<double>(page.second));
+        if (stats.minResponseTime < 0) {
+            stats.minResponseTime = page.second;
+        } else {
+            stats.minResponseTime = std::min(stats.minResponseTime, page.second);
+        }
 
-        if (stats.maxResponseTime < 0) stats.maxResponseTime = static_cast<double>(page.second);
-        else stats.maxResponseTime = std::max(stats.maxResponseTime, static_cast<double>(page.second));
+        if (stats.maxResponseTime < 0) {
+            stats.maxResponseTime = page.second;
+        } else {
+            stats.maxResponseTime = std::max(stats.maxResponseTime, page.second);
+        }
     }
 
-    stats.averageResponseTime = (stats.discoveredPages.size() > 0) ? totalResponseTime / static_cast<double>(stats.discoveredPages.size()) : -1;
-
-    return stats;
+    stats.averageResponseTime = (stats.discoveredPages.size() > 0) 
+        ? totalResponseTime / static_cast<double>(stats.discoveredPages.size()) 
+        : -1;
 }

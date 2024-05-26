@@ -68,7 +68,7 @@ bool hasSuffix(const std::string& str, const std::string& suffix) {
  * @return True if the domain is allowed, otherwise false.
  */
 bool verifyDomain(const std::string& url) {
-    const std::string ALLOWED_DOMAINS[] = {".com", ".sg", ".net", ".co", ".org", ".me", ".ro", ".html", ".gov", ".edu", ".uk", ".io", ".info", ".biz", ".us", ".ca", ".au", ".de", ".fr", ".it", ".nl", ".se", ".no", ".jp", ".br", ".es", ".mx", ".ru", ".ch", ".at", ".dk", ".be", ".nz", ".pl", ".cz", ".gr", ".pt", ".fi", ".hu", ".cn", ".tr", ".kr", ".tw", ".hk", ".vn", ".id", ".ph", ".my", ".th", ".ae", ".sa", ".il", ".eg", ".za", ".ua", ".ar", ".cl", ".pe", ".co", ".ve", ".ec", ".bo", ".py", ".uy", ".cr", ".pa", ".do", ".gt", ".sv", ".hn", ".ni", ".pr", ".jm", ".bb", ".tt", ".bs", ".gd", ".lc", ".vc", ".sr", ".gy", ".mq", ".gp", ".gf", ".aw", ".cw", ".sx", ".bq", ".an", ".pm", ".gl", ".fo", ".is", ".ie", ".lu", ".mc", ".ad", ".li", ".je", ".gg", ".im", ".gi", ".mt", ".cy", ".ax", ".fk", ".gs", ".bv", ".hm", ".tf", ".um", ".aq", ".io", ".sh", ".ac", ".cp", ".dg", ".eu", ".int", ".mil", ".museum", ".aero", ".arpa", ".cat", ".coop", ".jobs", ".pro", ".tel", ".travel", ".be", ".nz", ".pl",};
+    const std::string ALLOWED_DOMAINS[] = {".com", ".sg", ".net", ".co", ".org", ".me", ".ro", ".html", ".htmx", ".gov", ".edu", ".uk", ".io", ".info", ".biz", ".us", ".ca", ".au", ".de", ".fr", ".it", ".nl", ".se", ".no", ".jp", ".br", ".es", ".mx", ".ru", ".ch", ".at", ".dk", ".be", ".nz", ".pl", ".cz", ".gr", ".pt", ".fi", ".hu", ".cn", ".tr", ".kr", ".tw", ".hk", ".vn", ".id", ".ph", ".my", ".th", ".ae", ".sa", ".il", ".eg", ".za", ".ua", ".ar", ".cl", ".pe", ".co", ".ve", ".ec", ".bo", ".py", ".uy", ".cr", ".pa", ".do", ".gt", ".sv", ".hn", ".ni", ".pr", ".jm", ".bb", ".tt", ".bs", ".gd", ".lc", ".vc", ".sr", ".gy", ".mq", ".gp", ".gf", ".aw", ".cw", ".sx", ".bq", ".an", ".pm", ".gl", ".fo", ".is", ".ie", ".lu", ".mc", ".ad", ".li", ".je", ".gg", ".im", ".gi", ".mt", ".cy", ".ax", ".fk", ".gs", ".bv", ".hm", ".tf", ".um", ".aq", ".io", ".sh", ".ac", ".cp", ".dg", ".eu", ".int", ".mil", ".museum", ".aero", ".arpa", ".cat", ".coop", ".jobs", ".pro", ".tel", ".travel", ".be", ".nz", ".pl",};
     for (const auto& domain : ALLOWED_DOMAINS) {
         if (hasSuffix(url, domain)) {
             return true;
@@ -95,7 +95,7 @@ bool verifyUrl(const std::string& url) {
  * @return True if the URL type is allowed, otherwise false.
  */
 bool verifyType(const std::string& url) {
-    const std::string FORBIDDEN_TYPES[] = {".css", ".js", ".pdf", ".png", ".jpeg", ".jpg", ".ico"};
+    const std::string FORBIDDEN_TYPES[] = {".css", ".pdf", ".png", ".jpeg", ".jpg", ".ico"};
     for (const auto& type : FORBIDDEN_TYPES) {
         if (url.find(type) != std::string::npos) {
             return false;
@@ -146,8 +146,8 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
     std::string baseHost = getHostnameFromUrl(baseUrl);
 
     while (startPos < httpRaw.size()) {
-        size_t foundPos = std::string::npos;
-        std::string foundUrl;
+        size_t foundPos = std::string::npos; // pos of found url
+        std::string foundUrl; // the actual found url
 
         for (const auto& startText : URL_STARTS) {
             foundPos = httpRaw.find(startText, startPos);
@@ -166,10 +166,18 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
 
             // Ensure correct handling of relative URLs
             if (!foundUrl.empty() && foundUrl[0] == '/') {
-                foundUrl = "http://" + baseHost + foundUrl;
+
+                // std::cout << " >>>>>BR1 BEF>>>>> Found URL: " << foundUrl << std::endl;
+
+                foundUrl = baseUrl + foundUrl;
             } else if (!foundUrl.empty() && foundUrl.find("http") == std::string::npos) {
-                foundUrl = "http://" + baseHost + "/" + foundUrl;
+                
+                // std::cout << " >>>>>BR2 BEF>>>>> Found URL: " << foundUrl << std::endl;
+
+                foundUrl = "http:/" + baseHost + "/" + foundUrl;
             }
+
+            // std::cout << " >>>>>>>>>>>>>>>> Found URL: " << foundUrl << std::endl;
 
             if (verifyUrl(foundUrl) && verifyType(foundUrl)) {
                 std::string urlHost = getHostnameFromUrl(foundUrl);
