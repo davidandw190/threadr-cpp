@@ -63,6 +63,16 @@ void Crawler::initialize() {
         crawlerState.discoveredSites[getHostnameFromUrl(url)] = true;
     }
 
+    // init the CSV file
+    std::ofstream csvFile("crawl_results.csv");
+    if (csvFile.is_open()) {
+        csvFile << "WEBSITE,DEPTH,PAGES DISCOVERED,FAILED QUERIES,LINKED SITES,MIN RESPONSE TIME (ms),MAX RESPONSE TIME (ms),AVG RESPONSE TIME (ms)\n";
+        csvFile.close();
+    } else {
+        std::cerr << "Error: Unable to open CSV file" << std::endl;
+        exit(1);
+    }
+
     std::cout << "Crawler initialized" << std::endl;
 }
 
@@ -104,6 +114,9 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     Socket::SiteStats stats = clientSocket.initiateDiscovery();
     std::lock_guard<std::mutex> m_lock(m_mutex);
 
+
+    writeResultsToCsv(stats);
+
     // Output the stats
     std::cout << "----------------------------------------------------------------------------" << std::endl;
     std::cout << " - Website: " << stats.hostname << std::endl;
@@ -144,6 +157,29 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     m_condVar.notify_one();
 }
 
+
+/**
+ * @brief Writes the crawling results to a CSV file.
+ * 
+ * @param stats The statistics to write to the CSV file.
+ */
+void Crawler::writeResultsToCsv(const Socket::SiteStats& stats) {
+    std::lock_guard<std::mutex> csvLock(csvMutex);
+    std::ofstream csvFile("crawl_results.csv", std::ios::app);
+    if (csvFile.is_open()) {
+        csvFile << stats.hostname << ",";
+        csvFile << stats.discoveredPages.size() << ",";
+        csvFile << stats.failedQueries << ",";
+        csvFile << stats.linkedSites.size() << ",";
+        csvFile << (stats.minResponseTime < 0 ? "-" : std::to_string(stats.minResponseTime)) << ",";
+        csvFile << (stats.maxResponseTime < 0 ? "-" : std::to_string(stats.maxResponseTime)) << ",";
+        csvFile << (stats.averageResponseTime < 0 ? "-" : std::to_string(stats.averageResponseTime)) << "\n";
+
+        csvFile.close();
+    } else {
+        std::cerr << "Error opening CSV file for writing." << std::endl;
+    }
+}
 
 
 int main() {

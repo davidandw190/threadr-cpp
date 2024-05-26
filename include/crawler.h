@@ -28,13 +28,16 @@ private:
     } crawlerState;    
 
     std::mutex m_mutex;
+
+    std::mutex csvMutex;
+    
     std::condition_variable m_condVar;
     bool isThreadFinished;
 
     void initialize();
     void startCrawler(std::string baseUrl, int currentDepth);
     void scheduleCrawlers();
-    // Config readConfigFile();
+    void writeResultsToCsv(const Socket::SiteStats& stats);
 };
 
 #endif // CRAWLER_H
