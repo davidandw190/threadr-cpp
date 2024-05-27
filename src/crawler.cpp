@@ -64,6 +64,12 @@ void Crawler::initialize() {
     }
 
     // init the CSV file
+    initializeResultsFile();
+    
+    std::cout << "Crawler initialized" << std::endl;
+}
+
+void Crawler::initializeResultsFile() {
     std::ofstream csvFile("crawl_results.csv");
     if (csvFile.is_open()) {
         csvFile << "WEBSITE,DEPTH,PAGES DISCOVERED,FAILED QUERIES,LINKED SITES,MIN RESPONSE TIME (ms),MAX RESPONSE TIME (ms),AVG RESPONSE TIME (ms)\n";
@@ -72,8 +78,6 @@ void Crawler::initialize() {
         std::cerr << "Error: Unable to open CSV file" << std::endl;
         exit(1);
     }
-
-    std::cout << "Crawler initialized" << std::endl;
 }
 
 
@@ -114,10 +118,28 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     Socket::SiteStats stats = clientSocket.initiateDiscovery();
     std::lock_guard<std::mutex> m_lock(m_mutex);
 
-
-    writeResultsToCsv(stats);
-
     // Output the stats
+    writeResultsToCsv(stats, currentDepth);
+
+    writeResultsToConsole(stats, currentDepth);
+    
+
+    if (currentDepth < config.depthLimit) {
+        for (int i = 0; i < std::min(static_cast<int>(stats.linkedSites.size()), config.linkedSitesLimit); i++) {
+            std::string site = stats.linkedSites[i];
+            if (crawlerState.discoveredSites.find(site) == crawlerState.discoveredSites.end()) {
+                crawlerState.pendingSites.push(std::make_pair(site, currentDepth + 1));
+                crawlerState.discoveredSites[site] = true;
+            }
+        }
+    }
+
+    crawlerState.threadsCount--;
+    isThreadFinished = true;
+    m_condVar.notify_one();
+}
+
+void Crawler::writeResultsToConsole(const Socket::SiteStats& stats, int currentDepth) {
     std::cout << "----------------------------------------------------------------------------" << std::endl;
     std::cout << " - Website: " << stats.hostname << std::endl;
     std::cout << " - Depth (distance from the starting pages): " << currentDepth << std::endl;
@@ -141,20 +163,6 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
             std::cout << "    " << std::setw(13) << page.second << "ms" << "    " << page.first << std::endl;
         }
     }
-
-    if (currentDepth < config.depthLimit) {
-        for (int i = 0; i < std::min(static_cast<int>(stats.linkedSites.size()), config.linkedSitesLimit); i++) {
-            std::string site = stats.linkedSites[i];
-            if (crawlerState.discoveredSites.find(site) == crawlerState.discoveredSites.end()) {
-                crawlerState.pendingSites.push(std::make_pair(site, currentDepth + 1));
-                crawlerState.discoveredSites[site] = true;
-            }
-        }
-    }
-
-    crawlerState.threadsCount--;
-    isThreadFinished = true;
-    m_condVar.notify_one();
 }
 
 
@@ -163,11 +171,12 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
  * 
  * @param stats The statistics to write to the CSV file.
  */
-void Crawler::writeResultsToCsv(const Socket::SiteStats& stats) {
+void Crawler::writeResultsToCsv(const Socket::SiteStats& stats, int currentDepth) {
     std::lock_guard<std::mutex> csvLock(csvMutex);
     std::ofstream csvFile("crawl_results.csv", std::ios::app);
     if (csvFile.is_open()) {
         csvFile << stats.hostname << ",";
+        csvFile << currentDepth << ",";
         csvFile << stats.discoveredPages.size() << ",";
         csvFile << stats.failedQueries << ",";
         csvFile << stats.linkedSites.size() << ",";
