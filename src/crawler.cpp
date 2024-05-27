@@ -7,6 +7,7 @@
  */
 
 #include "crawler.h"
+#include <argparse/argparse.hpp>
 #include "socket.h"
 #include "parser.h"
 #include "config.h"
@@ -16,6 +17,94 @@ Crawler::Crawler(const Config& config) : config(config), isThreadFinished(false)
 void Crawler::start() {
     initialize();
     scheduleCrawlers();
+}
+
+Config parseCommandLineArgs(int argc, char *argv[]) {
+    argparse::ArgumentParser program("threadr");
+
+    program.add_argument("-t", "--maxThreads")
+        .help("Maximum number of threads")
+        .default_value(10)
+        .scan<'i', int>();
+
+    program.add_argument("-d", "--crawlDepth")
+        .help("Maximum crawl depth")
+        .default_value(3)
+        .scan<'i', int>();
+
+    program.add_argument("--pageLimit")
+        .help("Maximum number of pages to crawl per site")
+        .default_value(25)
+        .scan<'i', int>();
+
+    program.add_argument("--linkedSitesLimit")
+        .help("Maximum number of linked sites to discover per page")
+        .default_value(25)
+        .scan<'i', int>();
+
+    program.add_argument("--crawlDelay")
+        .help("Delay between requests in milliseconds")
+        .default_value(1000)
+        .scan<'i', int>();
+
+    program.add_argument("--configFile", "-cfg")
+        .help("Path to configuration file, if not provided, start URLs must be provided as arguments. Any other provided args conflicting with the config provided will override the ones from the config file. ")
+        .default_value(std::string(""));
+
+    program.add_argument("startUrls")
+        .help("List of starting URLs")
+        .remaining();
+
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::runtime_error &err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << program;
+        exit(1);
+    }
+
+    Config config;
+
+    std::string configFilePath = program.get<std::string>("--configFile");
+    if (!configFilePath.empty()) {
+        std::ifstream configFile(configFilePath);
+        if (configFile.is_open()) {
+            std::string var, val, url;
+            while (configFile >> var >> val) {
+                if (var == "crawlDelay") config.crawlDelay = std::stoi(val);
+                else if (var == "maxThreads") config.maxThreads = std::stoi(val);
+                else if (var == "depthLimit") config.depthLimit = std::stoi(val);
+                else if (var == "pageLimit") config.pageLimit = std::stoi(val);
+                else if (var == "linkedSitesLimit") config.linkedSitesLimit = std::stoi(val);
+                else if (var == "startUrls") {
+                    for (int i = 0; i < std::stoi(val); i++) {
+                        configFile >> url;
+                        config.startUrls.push_back(url);
+                    }
+                }
+            }
+            configFile.close();
+        } else {
+            std::cerr << "Unable to open configuration file: " << configFilePath << std::endl;
+            exit(1);
+        }
+    } else {
+        config.startUrls = program.get<std::vector<std::string>>("startUrls");
+    }
+
+    if (config.startUrls.empty()) {
+        std::cerr << "Error: No start URLs provided in the config file" << std::endl;
+        std::cerr << program;
+        exit(1);
+    }
+
+    config.maxThreads = program.get<int>("--maxThreads");
+    config.depthLimit = program.get<int>("--crawlDepth");
+    config.pageLimit = program.get<int>("--pageLimit");
+    config.linkedSitesLimit = program.get<int>("--linkedSitesLimit");
+    config.crawlDelay = program.get<int>("--crawlDelay");
+
+    return config;
 }
 
 /**
@@ -203,8 +292,13 @@ void Crawler::writeResultsToCsv(const Socket::SiteStats& stats, int currentDepth
 }
 
 
-int main() {
-    Crawler crawler(readConfigFile());
+int main(int argc, char *argv[]) {
+    // Crawler crawler(readConfigFile());
+    // crawler.start();
+
+    Config config = parseCommandLineArgs(argc, argv);
+
+    Crawler crawler(config);
     crawler.start();
     std::cout << "Crawler finished" << std::endl;
     return 0;
