@@ -72,7 +72,7 @@ void Crawler::initialize() {
 void Crawler::initializeResultsFile() {
     std::ofstream csvFile("crawl_results.csv");
     if (csvFile.is_open()) {
-        csvFile << "WEBSITE,DEPTH,PAGES DISCOVERED,FAILED QUERIES,LINKED SITES,MIN RESPONSE TIME (ms),MAX RESPONSE TIME (ms),AVG RESPONSE TIME (ms)\n";
+        csvFile << "WEBSITE,DEPTH,PAGES DISCOVERED,FAILED QUERIES,LINKED SITES,MIN RESPONSE TIME (ms),MAX RESPONSE TIME (ms),AVG RESPONSE TIME (ms),DISCOVERED PAGES\n";
         csvFile.close();
     } else {
         std::cerr << "Error: Unable to open CSV file" << std::endl;
@@ -182,7 +182,19 @@ void Crawler::writeResultsToCsv(const Socket::SiteStats& stats, int currentDepth
         csvFile << stats.linkedSites.size() << ",";
         csvFile << (stats.minResponseTime < 0 ? "-" : std::to_string(stats.minResponseTime)) << ",";
         csvFile << (stats.maxResponseTime < 0 ? "-" : std::to_string(stats.maxResponseTime)) << ",";
-        csvFile << (stats.averageResponseTime < 0 ? "-" : std::to_string(stats.averageResponseTime)) << "\n";
+        csvFile << (stats.averageResponseTime < 0 ? "-" : std::to_string(stats.averageResponseTime)) << ",";
+        
+        if (stats.discoveredPages.empty()) {
+            csvFile << "None";
+        } else {
+            for (size_t i = 0; i < stats.discoveredPages.size(); ++i) {
+                csvFile << stats.discoveredPages[i].first;
+                if (i != stats.discoveredPages.size() - 1) {
+                    csvFile << "; "; // semicolon as delimiter n the cell
+                }
+            }
+        }
+        csvFile << "\n";
 
         csvFile.close();
     } else {
