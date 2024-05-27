@@ -63,7 +63,21 @@ void Crawler::initialize() {
         crawlerState.discoveredSites[getHostnameFromUrl(url)] = true;
     }
 
+    // init the CSV file
+    initializeResultsFile();
+    
     std::cout << "Crawler initialized" << std::endl;
+}
+
+void Crawler::initializeResultsFile() {
+    std::ofstream csvFile("crawl_results.csv");
+    if (csvFile.is_open()) {
+        csvFile << "WEBSITE,DEPTH,PAGES DISCOVERED,FAILED QUERIES,LINKED SITES,MIN RESPONSE TIME (ms),MAX RESPONSE TIME (ms),AVG RESPONSE TIME (ms),DISCOVERED PAGES\n";
+        csvFile.close();
+    } else {
+        std::cerr << "Error: Unable to open CSV file" << std::endl;
+        exit(1);
+    }
 }
 
 
@@ -105,6 +119,27 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     std::lock_guard<std::mutex> m_lock(m_mutex);
 
     // Output the stats
+    writeResultsToCsv(stats, currentDepth);
+
+    writeResultsToConsole(stats, currentDepth);
+    
+
+    if (currentDepth < config.depthLimit) {
+        for (int i = 0; i < std::min(static_cast<int>(stats.linkedSites.size()), config.linkedSitesLimit); i++) {
+            std::string site = stats.linkedSites[i];
+            if (crawlerState.discoveredSites.find(site) == crawlerState.discoveredSites.end()) {
+                crawlerState.pendingSites.push(std::make_pair(site, currentDepth + 1));
+                crawlerState.discoveredSites[site] = true;
+            }
+        }
+    }
+
+    crawlerState.threadsCount--;
+    isThreadFinished = true;
+    m_condVar.notify_one();
+}
+
+void Crawler::writeResultsToConsole(const Socket::SiteStats& stats, int currentDepth) {
     std::cout << "----------------------------------------------------------------------------" << std::endl;
     std::cout << " - Website: " << stats.hostname << std::endl;
     std::cout << " - Depth (distance from the starting pages): " << currentDepth << std::endl;
@@ -128,22 +163,44 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
             std::cout << "    " << std::setw(13) << page.second << "ms" << "    " << page.first << std::endl;
         }
     }
-
-    if (currentDepth < config.depthLimit) {
-        for (int i = 0; i < std::min(static_cast<int>(stats.linkedSites.size()), config.linkedSitesLimit); i++) {
-            std::string site = stats.linkedSites[i];
-            if (crawlerState.discoveredSites.find(site) == crawlerState.discoveredSites.end()) {
-                crawlerState.pendingSites.push(std::make_pair(site, currentDepth + 1));
-                crawlerState.discoveredSites[site] = true;
-            }
-        }
-    }
-
-    crawlerState.threadsCount--;
-    isThreadFinished = true;
-    m_condVar.notify_one();
 }
 
+
+/**
+ * @brief Writes the crawling results to a CSV file.
+ * 
+ * @param stats The statistics to write to the CSV file.
+ */
+void Crawler::writeResultsToCsv(const Socket::SiteStats& stats, int currentDepth) {
+    std::lock_guard<std::mutex> csvLock(csvMutex);
+    std::ofstream csvFile("crawl_results.csv", std::ios::app);
+    if (csvFile.is_open()) {
+        csvFile << stats.hostname << ",";
+        csvFile << currentDepth << ",";
+        csvFile << stats.discoveredPages.size() << ",";
+        csvFile << stats.failedQueries << ",";
+        csvFile << stats.linkedSites.size() << ",";
+        csvFile << (stats.minResponseTime < 0 ? "-" : std::to_string(stats.minResponseTime)) << ",";
+        csvFile << (stats.maxResponseTime < 0 ? "-" : std::to_string(stats.maxResponseTime)) << ",";
+        csvFile << (stats.averageResponseTime < 0 ? "-" : std::to_string(stats.averageResponseTime)) << ",";
+        
+        if (stats.discoveredPages.empty()) {
+            csvFile << "None";
+        } else {
+            for (size_t i = 0; i < stats.discoveredPages.size(); ++i) {
+                csvFile << stats.discoveredPages[i].first;
+                if (i != stats.discoveredPages.size() - 1) {
+                    csvFile << "; "; // semicolon as delimiter n the cell
+                }
+            }
+        }
+        csvFile << "\n";
+
+        csvFile.close();
+    } else {
+        std::cerr << "Error opening CSV file for writing." << std::endl;
+    }
+}
 
 
 int main() {
