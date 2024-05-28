@@ -42,6 +42,16 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
         .help("Delay between requests in milliseconds")
         .scan<'i', int>();
 
+    program.add_argument("--enableCSVOutput", "-csv")
+        .help("Enable CSV output of the crawl results in `crawl_results.csv`")
+        .implicit_value(true)
+        .nargs(0);
+
+    program.add_argument("--disableConsoleOutput", "-out")
+        .help("Disable console output of the crawl results")
+        .implicit_value(true)
+        .nargs(0);    
+
     program.add_argument("--configFile", "-cfg")
         .help("Path to configuration file, if not provided, start URLs must be provided as arguments. Any other provided args conflicting with the config provided will override the ones from the config file. ")
         .default_value(std::string(""));
@@ -53,7 +63,7 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
     try {
         program.parse_args(argc, argv);
     } catch (const std::runtime_error &err) {
-         std::cerr << "Error: Invalid command line arguments provided. " << err.what() << std::endl;
+         std::cerr << " [!] Error: Invalid command line arguments provided. " << err.what() << std::endl;
         std::cerr << program;
         exit(1);
     }
@@ -65,7 +75,7 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
      if (!configFilePath.empty()) {
         std::ifstream configFile(configFilePath);
         if (!configFile.is_open()) {
-            std::cerr << "Error: Unable to open configuration file: " << configFilePath << std::endl;
+            std::cerr << " [!] Error: Unable to open configuration file: " << configFilePath << std::endl;
             exit(1);
         }
         
@@ -86,7 +96,7 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
             }
             configFile.close();
         } catch (const std::exception& e) {
-            std::cerr << "Error: Exception occurred while reading the configuration file: " << e.what() << std::endl;
+            std::cerr << " [!] Error: Exception occurred while reading the configuration file: " << e.what() << std::endl;
             exit(1);
         }
     } else {
@@ -110,6 +120,14 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
         config.crawlDelay = program.get<int>("--crawlDelay");
     }
 
+    if (program.present<bool>("--enableCSVOutput")) {
+        config.enableCSVOutput = true;
+    }
+
+    if (program.present<bool>("--disableConsoleOutput")) {
+        config.disableConsoleOutput = true;
+    }
+
     // add start URLs from command line if provided
     std::vector<std::string> startUrls = program.get<std::vector<std::string>>("startUrls");
     if (!startUrls.empty()) {
@@ -118,7 +136,7 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
 
     // check start URLs are provided
     if (config.startUrls.empty()) {
-        std::cerr << "Error: No start URLs provided. Specify start URLs in the command line or configuration file." << std::endl;
+        std::cerr << " [!] Error: No start URLs provided. Specify start URLs in the command line or configuration file." << std::endl;
         std::cerr << program;
         exit(1);
     }
@@ -150,10 +168,10 @@ Config readConfigFile() {
             }
         }
         cfFile.close();
-        std::cout << "Configuration file read successfully" << std::endl;
+        std::cout << " [*] Configuration file read successfully" << std::endl;
         return cf;
     } catch (std::exception& error) {
-        std::cerr << "Error: Exception occurred while reading the configuration file: " << error.what() << std::endl;
+        std::cerr << " [!] Error: Exception occurred while reading the configuration file: " << error.what() << std::endl;
         exit(1);
     }
 }
@@ -172,9 +190,9 @@ void Crawler::initialize() {
     }
 
     // init the CSV file
-    initializeResultsFile();
+    if (config.enableCSVOutput)  initializeResultsFile();
     
-    std::cout << "Crawler initialized" << std::endl;
+    std::cout << " [*] Crawler initialized successfully!" << std::endl;
 }
 
 void Crawler::initializeResultsFile() {
@@ -183,7 +201,7 @@ void Crawler::initializeResultsFile() {
         csvFile << "WEBSITE,DEPTH,PAGES DISCOVERED,FAILED QUERIES,LINKED SITES,MIN RESPONSE TIME (ms),MAX RESPONSE TIME (ms),AVG RESPONSE TIME (ms),DISCOVERED PAGES\n";
         csvFile.close();
     } else {
-        std::cerr << "Error: Unable to open CSV file" << std::endl;
+        std::cerr << " [!] Error: Unable to open CSV file" << std::endl;
         exit(1);
     }
 }
@@ -205,7 +223,9 @@ void Crawler::scheduleCrawlers() {
 
             std::thread(&Crawler::startCrawler, this, nextSite.first, nextSite.second).detach();
 
-            std::cout << "Thread scheduled for " << nextSite.first << " with path " << nextSite.second << std::endl;
+            if (!config.disableConsoleOutput && config.verbose) {
+                std::cout << " [>] Thread scheduled for `" << nextSite.first << "` with PATH `" << nextSite.second << "`" << std::endl;
+            }
         }
 
         m_condVar.wait(m_lock, [this] { return isThreadFinished; });
@@ -222,14 +242,13 @@ void Crawler::scheduleCrawlers() {
  */
 void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     Socket clientSocket(baseUrl, 80, config.pageLimit, config.crawlDelay);
-    std::cout << "Crawling " << baseUrl << " at depth " << currentDepth << std::endl;
+    std::cout << " [*] Crawling `" << baseUrl << "` at DEPTH " << currentDepth << std::endl;
     Socket::SiteStats stats = clientSocket.initiateDiscovery();
     std::lock_guard<std::mutex> m_lock(m_mutex);
-
+    // std::cout << "Console output is " << (config.disableConsoleOutput ? "disabled" : "enabled") << std::endl;
     // output the stats
-    writeResultsToCsv(stats, currentDepth);
-    writeResultsToConsole(stats, currentDepth);
-    
+    if (config.enableCSVOutput) writeResultsToCsv(stats, currentDepth);
+    if (!config.disableConsoleOutput) writeResultsToConsole(stats, currentDepth);
 
     if (currentDepth < config.depthLimit) {
         for (int i = 0; i < std::min(static_cast<int>(stats.linkedSites.size()), config.linkedSitesLimit); i++) {
@@ -240,6 +259,11 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
             }
         }
     }
+
+    if (!config.disableConsoleOutput && config.verbose) {
+        std::cout << " [<] Thread finished and descheduled.."<< std::endl;
+    }
+        
 
     crawlerState.threadsCount--;
     isThreadFinished = true;
@@ -305,7 +329,7 @@ void Crawler::writeResultsToCsv(const Socket::SiteStats& stats, int currentDepth
 
         csvFile.close();
     } else {
-        std::cerr << "Error opening CSV file for writing." << std::endl;
+        std::cerr << " [!] Error: Failed to open CSV file for writing." << std::endl;
     }
 }
 
@@ -316,16 +340,20 @@ int main(int argc, char *argv[]) {
     try {
         config = parseCommandLineArgs(argc, argv);
     } catch (const std::exception& e) {
-        std::cerr << "Error: Failed to parse command line arguments. " << e.what() << std::endl;
+        std::cerr << " [!] Error: Failed to parse command line arguments. " << e.what() << std::endl;
         return 1;
     }
 
     try {
         Crawler crawler(config);
+        auto startTime = std::chrono::steady_clock::now();
         crawler.start();
-        std::cout << "Crawler finished" << std::endl;
+        auto endTime = std::chrono::steady_clock::now(); // Stop measuring time
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime); // Calculate duration
+
+        std::cout << " [*] Crawler finished successfully! (" << duration.count() << " milliseconds)" << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "Error: Exception occurred during crawling. " << e.what() << std::endl;
+        std::cerr << " [!] Error: Exception occurred during crawling. " << e.what() << std::endl;
         return 1;
     }
     return 0;
