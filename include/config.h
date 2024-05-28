@@ -10,6 +10,9 @@ struct Config {
     int depthLimit = 15;
     int pageLimit = 100;
     int linkedSitesLimit = 100;
+    bool verbose = false;
+    bool enableCSVOutput = false;
+    bool disableConsoleOutput = false;
     std::vector<std::string> startUrls;
 };
 
