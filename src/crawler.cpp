@@ -58,7 +58,7 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
     try {
         program.parse_args(argc, argv);
     } catch (const std::runtime_error &err) {
-        std::cerr << err.what() << std::endl;
+        std::cerr << "Error: Invalid command line arguments provided. " << err.what() << std::endl;
         std::cerr << program;
         exit(1);
     }
@@ -68,7 +68,12 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
     std::string configFilePath = program.get<std::string>("--configFile");
     if (!configFilePath.empty()) {
         std::ifstream configFile(configFilePath);
-        if (configFile.is_open()) {
+        if (!configFile.is_open()) {
+            std::cerr << "Error: Unable to open configuration file: " << configFilePath << std::endl;
+            exit(1);
+        }
+        
+        try {
             std::string var, val, url;
             while (configFile >> var >> val) {
                 if (var == "crawlDelay") config.crawlDelay = std::stoi(val);
@@ -84,8 +89,8 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
                 }
             }
             configFile.close();
-        } else {
-            std::cerr << "Unable to open configuration file: " << configFilePath << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "Error: Exception occurred while reading the configuration file: " << e.what() << std::endl;
             exit(1);
         }
     } else {
@@ -93,7 +98,7 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
     }
 
     if (config.startUrls.empty()) {
-        std::cerr << "Error: No start URLs provided in the config file" << std::endl;
+        std::cerr << "Error: No start URLs provided. Please specify start URLs in the command line or in the configuration file." << std::endl;
         std::cerr << program;
         exit(1);
     }
@@ -134,7 +139,7 @@ Config readConfigFile() {
         std::cout << "Configuration file read successfully" << std::endl;
         return cf;
     } catch (std::exception& error) {
-        std::cerr << "Exception (@readConfigFile): " << error.what() << std::endl;
+        std::cerr << "Error: Exception occurred while reading the configuration file: " << error.what() << std::endl;
         exit(1);
     }
 }
@@ -296,10 +301,22 @@ int main(int argc, char *argv[]) {
     // Crawler crawler(readConfigFile());
     // crawler.start();
 
-    Config config = parseCommandLineArgs(argc, argv);
+    Config config;
+    
+    try {
+        config = parseCommandLineArgs(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << "Error: Failed to parse command line arguments. " << e.what() << std::endl;
+        return 1;
+    }
 
-    Crawler crawler(config);
-    crawler.start();
-    std::cout << "Crawler finished" << std::endl;
+    try {
+        Crawler crawler(config);
+        crawler.start();
+        std::cout << "Crawler finished" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: Exception occurred during crawling. " << e.what() << std::endl;
+        return 1;
+    }
     return 0;
 }
