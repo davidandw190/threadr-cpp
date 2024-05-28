@@ -24,27 +24,22 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
 
     program.add_argument("-t", "--maxThreads")
         .help("Maximum number of threads")
-        .default_value(10)
         .scan<'i', int>();
 
     program.add_argument("-d", "--crawlDepth")
         .help("Maximum crawl depth")
-        .default_value(3)
         .scan<'i', int>();
 
     program.add_argument("--pageLimit")
         .help("Maximum number of pages to crawl per site")
-        .default_value(25)
         .scan<'i', int>();
 
     program.add_argument("--linkedSitesLimit")
         .help("Maximum number of linked sites to discover per page")
-        .default_value(25)
         .scan<'i', int>();
 
     program.add_argument("--crawlDelay")
         .help("Delay between requests in milliseconds")
-        .default_value(1000)
         .scan<'i', int>();
 
     program.add_argument("--configFile", "-cfg")
@@ -58,15 +53,16 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
     try {
         program.parse_args(argc, argv);
     } catch (const std::runtime_error &err) {
-        std::cerr << "Error: Invalid command line arguments provided. " << err.what() << std::endl;
+         std::cerr << "Error: Invalid command line arguments provided. " << err.what() << std::endl;
         std::cerr << program;
         exit(1);
     }
 
     Config config;
 
+    // read config from file if specified
     std::string configFilePath = program.get<std::string>("--configFile");
-    if (!configFilePath.empty()) {
+     if (!configFilePath.empty()) {
         std::ifstream configFile(configFilePath);
         if (!configFile.is_open()) {
             std::cerr << "Error: Unable to open configuration file: " << configFilePath << std::endl;
@@ -97,17 +93,35 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
         config.startUrls = program.get<std::vector<std::string>>("startUrls");
     }
 
+    // override config with provided args
+    if (program.present<int>("--maxThreads")) {
+        config.maxThreads = program.get<int>("--maxThreads");
+    }
+    if (program.present<int>("--crawlDepth")) {
+        config.depthLimit = program.get<int>("--crawlDepth");
+    }
+    if (program.present<int>("--pageLimit")) {
+        config.pageLimit = program.get<int>("--pageLimit");
+    }
+    if (program.present<int>("--linkedSitesLimit")) {
+        config.linkedSitesLimit = program.get<int>("--linkedSitesLimit");
+    }
+    if (program.present<int>("--crawlDelay")) {
+        config.crawlDelay = program.get<int>("--crawlDelay");
+    }
+
+    // add start URLs from command line if provided
+    std::vector<std::string> startUrls = program.get<std::vector<std::string>>("startUrls");
+    if (!startUrls.empty()) {
+        config.startUrls.insert(config.startUrls.end(), startUrls.begin(), startUrls.end());
+    }
+
+    // check start URLs are provided
     if (config.startUrls.empty()) {
-        std::cerr << "Error: No start URLs provided. Please specify start URLs in the command line or in the configuration file." << std::endl;
+        std::cerr << "Error: No start URLs provided. Specify start URLs in the command line or configuration file." << std::endl;
         std::cerr << program;
         exit(1);
     }
-
-    config.maxThreads = program.get<int>("--maxThreads");
-    config.depthLimit = program.get<int>("--crawlDepth");
-    config.pageLimit = program.get<int>("--pageLimit");
-    config.linkedSitesLimit = program.get<int>("--linkedSitesLimit");
-    config.crawlDelay = program.get<int>("--crawlDelay");
 
     return config;
 }
@@ -212,9 +226,8 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     Socket::SiteStats stats = clientSocket.initiateDiscovery();
     std::lock_guard<std::mutex> m_lock(m_mutex);
 
-    // Output the stats
+    // output the stats
     writeResultsToCsv(stats, currentDepth);
-
     writeResultsToConsole(stats, currentDepth);
     
 
@@ -298,11 +311,8 @@ void Crawler::writeResultsToCsv(const Socket::SiteStats& stats, int currentDepth
 
 
 int main(int argc, char *argv[]) {
-    // Crawler crawler(readConfigFile());
-    // crawler.start();
-
     Config config;
-    
+
     try {
         config = parseCommandLineArgs(argc, argv);
     } catch (const std::exception& e) {
