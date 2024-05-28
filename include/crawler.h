@@ -40,6 +40,7 @@ private:
     void scheduleCrawlers();
     void writeResultsToConsole(const Socket::SiteStats& stats, int currentDepth);
     void writeResultsToCsv(const Socket::SiteStats& stats, int currentDepth);
+    
 };
 
 #endif // CRAWLER_H

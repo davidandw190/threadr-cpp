@@ -52,6 +52,11 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
         .implicit_value(true)
         .nargs(0);    
 
+    program.add_argument("-vb", "--verbose")
+        .help("Enable verbose output")
+        .implicit_value(true)
+        .nargs(0);    
+
     program.add_argument("--configFile", "-cfg")
         .help("Path to configuration file, if not provided, start URLs must be provided as arguments. Any other provided args conflicting with the config provided will override the ones from the config file. ")
         .default_value(std::string(""));
@@ -67,6 +72,8 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
         std::cerr << program;
         exit(1);
     }
+
+    bool configFileHasStartUrls = true;
 
     Config config;
 
@@ -88,6 +95,7 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
                 else if (var == "pageLimit") config.pageLimit = std::stoi(val);
                 else if (var == "linkedSitesLimit") config.linkedSitesLimit = std::stoi(val);
                 else if (var == "startUrls") {
+                    if (std::stoi(val) > 0) configFileHasStartUrls = true;
                     for (int i = 0; i < std::stoi(val); i++) {
                         configFile >> url;
                         config.startUrls.push_back(url);
@@ -99,23 +107,27 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
             std::cerr << " [!] Error: Exception occurred while reading the configuration file: " << e.what() << std::endl;
             exit(1);
         }
-    } else {
-        config.startUrls = program.get<std::vector<std::string>>("startUrls");
     }
+    //     config.startUrls = program.get<std::vector<std::string>>("startUrls");
+    // }
 
     // override config with provided args
     if (program.present<int>("--maxThreads")) {
         config.maxThreads = program.get<int>("--maxThreads");
     }
+    
     if (program.present<int>("--crawlDepth")) {
         config.depthLimit = program.get<int>("--crawlDepth");
     }
+
     if (program.present<int>("--pageLimit")) {
         config.pageLimit = program.get<int>("--pageLimit");
     }
+
     if (program.present<int>("--linkedSitesLimit")) {
         config.linkedSitesLimit = program.get<int>("--linkedSitesLimit");
     }
+
     if (program.present<int>("--crawlDelay")) {
         config.crawlDelay = program.get<int>("--crawlDelay");
     }
@@ -128,14 +140,20 @@ Config parseCommandLineArgs(int argc, char *argv[]) {
         config.disableConsoleOutput = true;
     }
 
+    if (program.present<bool>("--verbose")) {
+        config.verbose = true;
+    }
+
     // add start URLs from command line if provided
-    std::vector<std::string> startUrls = program.get<std::vector<std::string>>("startUrls");
-    if (!startUrls.empty()) {
-        config.startUrls.insert(config.startUrls.end(), startUrls.begin(), startUrls.end());
+     if (program.present("startUrls")) {
+        std::vector<std::string> startUrls = program.get<std::vector<std::string>>("startUrls");
+        if (!startUrls.empty()) {
+            config.startUrls.insert(config.startUrls.end(), startUrls.begin(), startUrls.end());
+        }
     }
 
     // check start URLs are provided
-    if (config.startUrls.empty()) {
+    if (config.startUrls.empty() && !configFileHasStartUrls) {
         std::cerr << " [!] Error: No start URLs provided. Specify start URLs in the command line or configuration file." << std::endl;
         std::cerr << program;
         exit(1);
@@ -223,9 +241,7 @@ void Crawler::scheduleCrawlers() {
 
             std::thread(&Crawler::startCrawler, this, nextSite.first, nextSite.second).detach();
 
-            if (!config.disableConsoleOutput && config.verbose) {
-                std::cout << " [>] Thread scheduled for `" << nextSite.first << "` with PATH `" << nextSite.second << "`" << std::endl;
-            }
+            
         }
 
         m_condVar.wait(m_lock, [this] { return isThreadFinished; });
@@ -242,7 +258,6 @@ void Crawler::scheduleCrawlers() {
  */
 void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
     Socket clientSocket(baseUrl, 80, config.pageLimit, config.crawlDelay);
-    std::cout << " [*] Crawling `" << baseUrl << "` at DEPTH " << currentDepth << std::endl;
     Socket::SiteStats stats = clientSocket.initiateDiscovery();
     std::lock_guard<std::mutex> m_lock(m_mutex);
     // std::cout << "Console output is " << (config.disableConsoleOutput ? "disabled" : "enabled") << std::endl;
@@ -259,11 +274,6 @@ void Crawler::startCrawler(std::string baseUrl, int currentDepth) {
             }
         }
     }
-
-    if (!config.disableConsoleOutput && config.verbose) {
-        std::cout << " [<] Thread finished and descheduled.."<< std::endl;
-    }
-        
 
     crawlerState.threadsCount--;
     isThreadFinished = true;
@@ -332,7 +342,6 @@ void Crawler::writeResultsToCsv(const Socket::SiteStats& stats, int currentDepth
         std::cerr << " [!] Error: Failed to open CSV file for writing." << std::endl;
     }
 }
-
 
 int main(int argc, char *argv[]) {
     Config config;
