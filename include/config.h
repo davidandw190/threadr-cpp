@@ -5,11 +5,11 @@
 #include <vector>
 
 struct Config {
-    int crawlDelay = 2000;
+    int crawlDelay = 1500;
     int maxThreads = 15;
-    int depthLimit = 15;
-    int pageLimit = 100;
-    int linkedSitesLimit = 100;
+    int depthLimit = 5;
+    int pageLimit = 20;
+    int linkedSitesLimit = 20;
     bool verbose = false;
     bool enableCSVOutput = false;
     bool disableConsoleOutput = false;
