@@ -41,11 +41,11 @@ std::string Socket::startConnection() {
 
     host = gethostbyname(hostname.c_str());
     if (host == nullptr || host->h_addr == nullptr) {
-        return "Error getting DNS info for hostname: " + hostname + " (" + hstrerror(h_errno) + ")";
+        return " [!] Error getting DNS info for hostname: " + hostname + " (" + hstrerror(h_errno) + ")";
     }
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        return "Cannot create socket: " + std::string(strerror(errno));
+        return " [!] Error: Cannot create socket: " + std::string(strerror(errno));
     }
 
     bzero(&serverAddr, sizeof(serverAddr));
@@ -62,7 +62,7 @@ std::string Socket::startConnection() {
 
     if (connect(sock, (struct sockaddr *)&serverAddr, sizeof(struct sockaddr)) == -1) {
         close(sock);
-        return "Cannot connect to server: " + std::string(strerror(errno));
+        return " [!] Error: Cannot connect to server: " + std::string(strerror(errno));
     }
 
     return "";
@@ -75,7 +75,7 @@ std::string Socket::startConnection() {
  */
 std::string Socket::closeConnection() {
     if (close(sock) == -1) {
-        return "Error closing socket: " + std::string(strerror(errno));
+        return " [!] Error closing socket: " + std::string(strerror(errno));
     }
 
     return "";

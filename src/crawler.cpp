@@ -253,7 +253,7 @@ void Crawler::scheduleCrawlers() {
 /**
  * @brief Starts crawling a given URL.
  * 
-* @param baseUrl The base URL of the website to crawl.
+ * @param baseUrl The base URL of the website to crawl.
  * @param currentDepth The current depth of the crawling process.
  */
 void Crawler::startCrawler(std::string baseUrl, int currentDepth) {

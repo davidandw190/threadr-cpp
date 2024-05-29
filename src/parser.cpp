@@ -95,7 +95,7 @@ bool verifyUrl(const std::string& url) {
  * @return True if the URL type is allowed, otherwise false.
  */
 bool verifyType(const std::string& url) {
-    const std::string FORBIDDEN_TYPES[] = {".css", ".pdf", ".png", ".jpeg", ".jpg", ".ico"};
+    const std::string FORBIDDEN_TYPES[] = {".css", ".pdf", ".png", "js", ".jpeg", ".jpg", ".ico"};
     for (const auto& type : FORBIDDEN_TYPES) {
         if (url.find(type) != std::string::npos) {
             return false;
@@ -164,7 +164,6 @@ std::vector<std::pair<std::string, std::string>> extractUrls(const std::string& 
             }
             foundUrl = httpRaw.substr(foundPos, endPos - foundPos);
 
-            // Ensure correct handling of relative URLs
             if (!foundUrl.empty() && foundUrl[0] == '/') {
 
                 // std::cout << " >>>>>BR1 BEF>>>>> Found URL: " << foundUrl << std::endl;
